@@ -1,0 +1,96 @@
+---
+title: "Cause of Death"
+output: html_notebook
+---
+
+# Introduction
+
+The aim of this repo is to investigate the change in CVD and non-CVD mortality in England & Wales over time, in comparison with a couple of other countries 
+
+The data source used will be the [Human Cause of Death](https://www.causesofdeath.org/) database. THe source it uses is the [WHO Mortality Database](https://www.who.int/healthinfo/statistics/mortality_rawdata/en/) 
+
+The information required to decipher the data are available [here](https://www.causesofdeath.org/docs/formats.pdf)
+
+For the short code:
+
+* 0   All causes
+* 7   Heart Diseases
+* 8   Cerebrovascular diseases
+
+```{r}
+pacman::p_load(tidyverse, here, readxl)
+
+
+```
+
+Load SDR short list
+
+```{r}
+
+sdr <- read_csv(here("data", "GBRTENW", "GBRTENW_sdr_short_idr.csv"))
+
+```
+
+
+```{r}
+short_code_lookup <- read_excel(here("data", "lookups.xlsx"), sheet = "cause_short")
+sex_lookup <- read_excel(here("data", "lookups.xlsx"), sheet = "sex")
+```
+
+Join
+
+```{r}
+tidied_sdr <- 
+  sdr %>% 
+    left_join(sex_lookup, by = c("sex" = "no")) %>% 
+    select(year, sex = sex.y, cause, sdr = SDR2013) %>% 
+    left_join(short_code_lookup, by = c("cause"= "no")) %>% 
+    select(year, sex, cause = short_title, sdr)
+
+tidied_sdr
+
+```
+
+
+```{r}
+
+tidied_sdr %>% 
+  filter(cause %in% c("all")) %>% 
+  ggplot(aes(x = year, y = sdr, group = cause, colour = cause)) + 
+  geom_line() +
+  facet_wrap(~sex)
+
+tidied_sdr %>% 
+  filter(cause %in% c("circulatory", "cerebrovascular")) %>% 
+  ggplot(aes(x = year, y = sdr, group = cause, colour = cause)) + 
+  geom_line() +
+  facet_wrap(~sex)
+
+tidied_sdr %>% 
+  group_by(sex, cause) %>% 
+  arrange(year) %>% 
+  mutate(ch_sdr = sdr - lag(sdr)) %>% 
+  ungroup() %>% 
+  filter(cause %in% c("cerebrovascular")) %>% 
+  ggplot(aes(x = year, y = ch_sdr, group = cause, colour = cause)) + 
+  geom_point() +
+  stat_smooth() +
+  geom_hline(yintercept = 0) +
+  facet_wrap(~sex)
+
+tidied_sdr %>% 
+  group_by(sex, cause) %>% 
+  arrange(year) %>% 
+  mutate(ch_sdr = sdr - lag(sdr)) %>% 
+  ungroup() %>% 
+  filter(cause %in% c("all")) %>% 
+  ggplot(aes(x = year, y = ch_sdr, group = cause, colour = cause)) + 
+  geom_point() +
+  stat_smooth() +
+  geom_hline(yintercept = 0) +
+  facet_wrap(~sex)
+
+```
+
+
+It's difficult to tell with this, the period is too short. It might be better to go to the WHO database instead....
